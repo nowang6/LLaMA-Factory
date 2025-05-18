@@ -14,7 +14,8 @@
 
 import json
 import os
-from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, Tuple
+from collections.abc import Generator
+from typing import TYPE_CHECKING, Any, Optional
 
 from transformers.utils import is_torch_npu_available
 
@@ -37,15 +38,12 @@ if is_gradio_available():
 
 
 def _escape_html(text: str) -> str:
-    r"""
-    Escapes HTML characters.
-    """
+    r"""Escape HTML characters."""
     return text.replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _format_response(text: str, lang: str, escape_html: bool, thought_words: Tuple[str, str]) -> str:
-    r"""
-    Post-processes the response text.
+def _format_response(text: str, lang: str, escape_html: bool, thought_words: tuple[str, str]) -> str:
+    r"""Post-process the response text.
 
     Based on: https://huggingface.co/spaces/Lyte/DeepSeek-R1-Distill-Qwen-1.5B-Demo-GGUF/blob/main/app.py
     """
@@ -74,15 +72,15 @@ class WebChatModel(ChatModel):
     def __init__(self, manager: "Manager", demo_mode: bool = False, lazy_init: bool = True) -> None:
         self.manager = manager
         self.demo_mode = demo_mode
-        self.engine: Optional["BaseEngine"] = None
+        self.engine: Optional[BaseEngine] = None
 
         if not lazy_init:  # read arguments from command line
             super().__init__()
 
-        if demo_mode and os.environ.get("DEMO_MODEL") and os.environ.get("DEMO_TEMPLATE"):  # load demo model
-            model_name_or_path = os.environ.get("DEMO_MODEL")
-            template = os.environ.get("DEMO_TEMPLATE")
-            infer_backend = os.environ.get("DEMO_BACKEND", "huggingface")
+        if demo_mode and os.getenv("DEMO_MODEL") and os.getenv("DEMO_TEMPLATE"):  # load demo model
+            model_name_or_path = os.getenv("DEMO_MODEL")
+            template = os.getenv("DEMO_TEMPLATE")
+            infer_backend = os.getenv("DEMO_BACKEND", "huggingface")
             super().__init__(
                 dict(model_name_or_path=model_name_or_path, template=template, infer_backend=infer_backend)
             )
@@ -124,6 +122,7 @@ class WebChatModel(ChatModel):
             enable_liger_kernel=(get("top.booster") == "liger_kernel"),
             infer_backend=get("infer.infer_backend"),
             infer_dtype=get("infer.infer_dtype"),
+            vllm_enforce_eager=True,
             trust_remote_code=True,
         )
 
@@ -160,14 +159,13 @@ class WebChatModel(ChatModel):
 
     @staticmethod
     def append(
-        chatbot: List[Dict[str, str]],
-        messages: List[Dict[str, str]],
+        chatbot: list[dict[str, str]],
+        messages: list[dict[str, str]],
         role: str,
         query: str,
         escape_html: bool,
-    ) -> Tuple[List[Dict[str, str]], List[Dict[str, str]], str]:
-        r"""
-        Adds the user input to chatbot.
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]], str]:
+        r"""Add the user input to chatbot.
 
         Inputs: infer.chatbot, infer.messages, infer.role, infer.query, infer.escape_html
         Output: infer.chatbot, infer.messages, infer.query
@@ -180,8 +178,8 @@ class WebChatModel(ChatModel):
 
     def stream(
         self,
-        chatbot: List[Dict[str, str]],
-        messages: List[Dict[str, str]],
+        chatbot: list[dict[str, str]],
+        messages: list[dict[str, str]],
         lang: str,
         system: str,
         tools: str,
@@ -193,9 +191,9 @@ class WebChatModel(ChatModel):
         temperature: float,
         skip_special_tokens: bool,
         escape_html: bool,
-    ) -> Generator[Tuple[List[Dict[str, str]], List[Dict[str, str]]], None, None]:
-        r"""
-        Generates output text in stream.
+        enable_thinking: bool,
+    ) -> Generator[tuple[list[dict[str, str]], list[dict[str, str]]], None, None]:
+        r"""Generate output text in stream.
 
         Inputs: infer.chatbot, infer.messages, infer.system, infer.tools, infer.image, infer.video, ...
         Output: infer.chatbot, infer.messages
@@ -213,6 +211,7 @@ class WebChatModel(ChatModel):
             top_p=top_p,
             temperature=temperature,
             skip_special_tokens=skip_special_tokens,
+            enable_thinking=enable_thinking,
         ):
             response += new_text
             if tools:
