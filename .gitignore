@@ -177,3 +177,5 @@ wandb/
 swanlog/
 generated_predictions.jsonl
 predictions_score.json
+data/td_vl_519
+data/td_vl_519.json
